@@ -14,7 +14,7 @@ def evaluate_model(labpoint,prepoint):
     for i in range(batch_size):
         pre_len = len(np.nonzero(prepoint[i, :, 2])[0])
         # pre_len = prepoint.shape[1]
-        for j in range(len(labpoint[i])):
+        for j in range(labpoint.shape[1]):
             x1=labpoint[i][j][0]
             y1=labpoint[i][j][1]
             min_dist=MinDistance_Shreshold+0.00001

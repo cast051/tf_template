@@ -9,8 +9,7 @@ class Model(BaseBlock):
         self.is_training = config.is_training
         #define variable
         self.image =image
-        if self.is_training:
-            self.annotation = annotation
+        self.annotation = annotation
 
         self.num_classes=config.num_classes
         self.layers_down, self.layers_up, self.batch_norm_params = self.net_config()

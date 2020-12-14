@@ -5,15 +5,15 @@ from base.base_train import Base_Train
 import os
 import imageio
 import numpy as np
-from tfrecords import get_dataset
-os.environ['CUDA_VISIBLE_DEVICES']='7'
+from dataloader import get_dataset
+os.environ['CUDA_VISIBLE_DEVICES']='1'
 
 def main():
     #get config
     config=get_config(is_training=True)
 
     #get dataset tfrecords
-    img, msk, pot, img_width, img_height, point_num,iterator=get_dataset(
+    img, msk, pot, img_width, img_height, point_num,iterator,dataset_num=get_dataset(
         config.data_dir,config.data_num_parallel,
         config.data_buffer_size,config.batch_size,
         config.data_prefetch,'training.tfrecords')
@@ -32,7 +32,7 @@ def main():
     #load post process op
     postprocess_module = tf.load_op_library(config.so_path)
     postprocess = postprocess_module.seg2_point_num(tf.cast(model.y*255, tf.uint8))
-    postprocess = tf.identity(postprocess,name='net_output')
+    postprocess = tf.identity(postprocess,name='output')
 
     #create session and load model
     sess = tf.Session()
