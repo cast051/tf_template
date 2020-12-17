@@ -54,7 +54,7 @@ def main():
 
         if itr % 10 == 0:
             print("Step: %d, Train_loss:%g : " % (itr, train_loss))
-        if itr % 10==0 :
+        if itr % 1000==0 :
             # save model
             train.saver.save(sess, config.weight_dir + "model.ckpt", itr)
             #debug save img

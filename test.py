@@ -5,13 +5,12 @@ import cv2
 import glob
 import imageio
 import time
-from dataloader import get_dataset
+from dataloader import get_dataset_segmentation_with_point
 from model import Model
 from config import get_config
 from evalute import evaluate_model,get_PR
 
-os.environ['CUDA_VISIBLE_DEVICES']='1'
-
+os.environ['CUDA_VISIBLE_DEVICES']='3'
 
 def main():
     is_training=False
@@ -37,10 +36,17 @@ def main():
 
     if config.testmodel=="test1":
         # get dataset tfrecords
-        img, msk, pot, img_width, img_height, point_num, iterator ,dataset_num= get_dataset(
-            config.data_dir, config.data_num_parallel,
-            config.data_buffer_size, config.batch_size,
-            config.data_prefetch, 'validation.tfrecords')
+        img, msk, pot, img_width, img_height, point_num, iterator, dataset_num = \
+            get_dataset_segmentation_with_point(
+                config.data_dir,
+                config.data_num_parallel,
+                config.data_buffer_size,
+                config.batch_size,
+                config.data_prefetch,
+                config.image_shape,
+                config.augument,
+                'validation.tfrecords'
+            )
         sess.run( iterator.initializer)
         print("test mode 1 ")
         TP,FP,FN,totle_time= 0, 0 ,0,0

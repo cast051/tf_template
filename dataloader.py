@@ -21,7 +21,7 @@ import logging
 from transform import transform
 
 
-os.environ['CUDA_VISIBLE_DEVICES']='-1'
+os.environ['CUDA_VISIBLE_DEVICES']='4'
 cwd = os.getcwd()
 '''
 分类Classification 
@@ -504,10 +504,6 @@ def get_dataset_detection(
     return img,boxes, img_width, img_height, boxes_num,iterator,dataset_num
     #FiXME
 
-
-
-
-
 def test_dataset_segmentation_with_point():
     config = get_config(is_training=True)
     img, msk, pot, img_width, img_height, point_num,iterator,dataset_num=\
@@ -556,11 +552,11 @@ def test_dataset_detection():
 #generate tfrecords
 if __name__=='__main__':
     config = get_config(is_training=True)
-    # print("start generate tfrecords .......")
-    # generate_tfrecords(config.data_dir, 'Segmentation_with_Point', 1, config.tfrecords_dir)
-    # print("generate tfrecords down")
+    print("start generate tfrecords .......")
+    generate_tfrecords(config.data_dir, 'Segmentation_with_Point', 1, config.tfrecords_dir)
+    print("generate tfrecords down")
 
-    test_dataset_segmentation_with_point()
+    # test_dataset_segmentation_with_point()
     # test_dataset_detection()
 
 
