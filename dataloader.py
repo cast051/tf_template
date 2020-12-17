@@ -12,13 +12,16 @@ import os
 import tensorflow as tf
 from PIL import Image
 from config import get_config
-import imageio
+import cv2
 import numpy as np
 import json
 import glob
 import io
 import logging
-os.environ['CUDA_VISIBLE_DEVICES']='7'
+from transform import transform
+
+
+os.environ['CUDA_VISIBLE_DEVICES']='-1'
 cwd = os.getcwd()
 '''
 分类Classification 
@@ -183,7 +186,7 @@ MODE=2
 
 def generate_tfrecords(dataset_dir, task, mode, tfrecords_dir):
     assert os.path.isdir(dataset_dir)
-    assert task in ['Classification', 'Segmentation', 'Detection']
+    assert task in ['Classification', 'Segmentation', 'Segmentation_with_Point', 'Detection']
     assert mode in [1, 2]
 
     if mode == 1:
@@ -208,7 +211,7 @@ def generate_tfrecords(dataset_dir, task, mode, tfrecords_dir):
                             writer.write(example.SerializeToString())
                     writer.close()
         # TODO
-        elif task == "Segmentation":
+        elif task == "Segmentation_with_Point":
             for data_type in dataset_split:
                 if os.path.isdir(tfrecords_dir+data_type):
                     writer = tf.python_io.TFRecordWriter(os.path.join(tfrecords_dir, "%s.tfrecords" % (data_type)))
@@ -226,14 +229,12 @@ def generate_tfrecords(dataset_dir, task, mode, tfrecords_dir):
                             img = fid.read()
                         with tf.gfile.GFile(msk_abs_path, 'rb') as fid:
                             msk = fid.read()
-                        # raw_img = Image.open(img_abs_path)
-                        # img_raw = raw_img.tobytes()
-                        # msk_img = Image.open(msk_abs_path)
-                        # msk_raw = msk_img.tobytes()
+
                         pot = read_json2point(pot_abs_path)
                         pot_raw = pot.tobytes()
-                        img_width=1024
-                        img_height = 1024
+                        temp=cv2.imread(img_abs_path)
+                        img_width = temp.shape[0]
+                        img_height = temp.shape[1]
                         point_num=pot.shape[0]
                         example = tf.train.Example(features=tf.train.Features(feature={
                             "img": tf.train.Feature(bytes_list=tf.train.BytesList(value=[img])),
@@ -245,9 +246,41 @@ def generate_tfrecords(dataset_dir, task, mode, tfrecords_dir):
                         }))
                         writer.write(example.SerializeToString())
                     writer.close()
+        elif task == "Segmentation":
+            for data_type in dataset_split:
+                if os.path.isdir(tfrecords_dir + data_type):
+                    writer = tf.python_io.TFRecordWriter(os.path.join(tfrecords_dir, "%s.tfrecords" % (data_type)))
+                    images_dir = os.path.join(dataset_dir, data_type + "/" + "images")
+                    masks_dir = os.path.join(dataset_dir, data_type + "/" + "masks")
+                    images_name = os.listdir(images_dir)
+                    for image_name in images_name:
+                        mask_name = image_name.replace(".jpg", ".png")
+                        img_abs_path = os.path.join(images_dir, image_name)
+                        msk_abs_path = os.path.join(masks_dir, mask_name)
+
+                        with tf.gfile.GFile(img_abs_path, 'rb') as fid:
+                            img = fid.read()
+                        with tf.gfile.GFile(msk_abs_path, 'rb') as fid:
+                            msk = fid.read()
+                        temp=cv2.imread(img_abs_path)
+                        img_width = temp.shape[0]
+                        img_height = temp.shape[1]
+                        example = tf.train.Example(features=tf.train.Features(feature={
+                            "img": tf.train.Feature(bytes_list=tf.train.BytesList(value=[img])),
+                            'msk': tf.train.Feature(bytes_list=tf.train.BytesList(value=[msk])),
+                            "img_width": tf.train.Feature(int64_list=tf.train.Int64List(value=[img_width])),
+                            "img_height": tf.train.Feature(int64_list=tf.train.Int64List(value=[img_height])),
+                        }))
+                        writer.write(example.SerializeToString())
+                    writer.close()
+            # FIXME
+        elif task == "Detection":
+            pass
+            # TODO
         else:
             pass
-        # TODO
+            # TODO
+
 
     if mode == 2:
         annotations_dir = os.path.join(dataset_dir, "annotations")
@@ -298,7 +331,7 @@ def read_decode_tfrecords(filename):
     return img, msk ,pot
 
 
-def __parse_func(example_proto):
+def parse_func_segmentation_with_point(example_proto):
     keys_to_features = {
         'img': tf.FixedLenFeature([], tf.string),
         'msk': tf.FixedLenFeature([], tf.string),
@@ -308,11 +341,6 @@ def __parse_func(example_proto):
         "point_num": tf.FixedLenFeature([], tf.int64,1),
     }
     example_proto = tf.parse_single_example(example_proto,keys_to_features)
-    # img = tf.decode_raw(example_proto['img_raw'], tf.uint8)
-    # msk = tf.decode_raw(example_proto['msk_raw'], tf.uint8)
-    # pot = tf.decode_raw(example_proto['pot_raw'], tf.int32)
-    # img = tf.reshape(img, [1024, 1024, 3])
-    # msk = tf.reshape(msk, [1024, 1024, 1])
     img=tf.image.decode_jpeg(example_proto['img'], channels=3)
     msk=tf.image.decode_jpeg(example_proto['msk'], channels=1)
     pot = tf.decode_raw(example_proto['pot_raw'], tf.int32)
@@ -323,9 +351,9 @@ def __parse_func(example_proto):
     point_num = example_proto['point_num']
 
     keys_to_res = {
-        "Image":img,
-        "Mask":msk,
-        "Point":pot,
+        "img":img,
+        "msk":msk,
+        "pot":pot,
         "img_width": img_width,
         "img_height": img_height,
         "point_num": point_num,
@@ -342,7 +370,51 @@ def __parse_func(example_proto):
     return res
 
 
-def get_database(dataset_dir,num_parallel=1,file_pattern='*_train.record'):
+def parse_func_detection(example_proto):
+    keys_to_features = {
+        'img': tf.FixedLenFeature([], tf.string),
+        'boxes': tf.FixedLenFeature([], tf.string),
+        "img_width": tf.FixedLenFeature([], tf.int64,1),
+        "img_height": tf.FixedLenFeature([], tf.int64,1),
+        "boxes_num": tf.FixedLenFeature([], tf.int64,1),
+    }
+    example_proto = tf.parse_single_example(example_proto,keys_to_features)
+
+    img=tf.image.decode_jpeg(example_proto['img'], channels=3)
+    boxes = tf.decode_raw(example_proto['boxes'], tf.int32)
+    boxes = tf.reshape(boxes, [-1, 4])
+    img_width=example_proto['img_width']
+    img_height = example_proto['img_height']
+    boxes_num = example_proto['boxes_num']
+
+    keys_to_res = {
+        "img":img,
+        "boxes":boxes,
+        "img_width": img_width,
+        "img_height": img_height,
+        "boxes_num": boxes_num,
+    }
+    res = {}
+    for k,v in keys_to_res.items():
+        if isinstance(v,str):
+            if isinstance(example_proto[v],tf.SparseTensor):
+                res[k] = tf.sparse_tensor_to_dense(example_proto[v])
+            else:
+                res[k] = example_proto[v]
+        else:
+            res[k] = v
+    return res
+
+
+
+def get_data_num(file_pattern):
+    dataset_num=0
+    for record in tf.python_io.tf_record_iterator(file_pattern):
+        dataset_num += 1
+    print("dataset num is ",dataset_num)
+    return dataset_num
+
+def get_database(dataset_dir,parse_func,num_parallel=1,file_pattern='*_train.record'):
     file_pattern = os.path.join(dataset_dir,file_pattern)
     files = glob.glob(file_pattern)
     if len(files) == 0:
@@ -350,12 +422,9 @@ def get_database(dataset_dir,num_parallel=1,file_pattern='*_train.record'):
     else:
         print(f"Total {len(files)} files.")
     dataset = tf.data.TFRecordDataset(files,num_parallel_reads=num_parallel)
-    dataset = dataset.map(__parse_func,num_parallel_calls=num_parallel)
-    dataset_num=0
-    for record in tf.python_io.tf_record_iterator(file_pattern):
-        dataset_num += 1
-    print("dataset num is ",dataset_num)
-    return dataset,dataset_num
+    dataset = dataset.map(parse_func,num_parallel_calls=num_parallel)
+    dataset_num=get_data_num(file_pattern)
+    return dataset, dataset_num
 
 def get_pad_shapes(dataset):
     shapes = dataset.output_shapes
@@ -366,9 +435,57 @@ def get_pad_shapes(dataset):
     return res
 
 
-def get_dataset(data_dir,data_num_parallel,data_buffer_size,batch_size,data_prefetch,tfname):
+def get_dataset_segmentation_with_point(
+                data_dir,
+                data_num_parallel,
+                data_buffer_size,
+                batch_size,
+                data_prefetch,
+                image_shape,
+                augument,
+                tfname):
     #load tfrecord
-    dataset,dataset_num=get_database(data_dir, num_parallel=data_num_parallel, file_pattern=tfname)
+    dataset,dataset_num=get_database(data_dir,parse_func_segmentation_with_point, num_parallel=data_num_parallel, file_pattern=tfname)
+
+    #augument
+    if augument:
+        tran=transform(image_shape[0], image_shape[1])
+        dataset = dataset.map(tran.augument_segmentation_with_point, num_parallel_calls=data_num_parallel)
+
+    #set dataset
+    dataset=dataset.repeat().shuffle(data_buffer_size).padded_batch(batch_size,get_pad_shapes(dataset),drop_remainder=True).prefetch(data_prefetch)
+
+    #generate iterator
+    iterator=dataset.make_initializable_iterator()
+    dataset_nextbatch=iterator.get_next()
+
+    #get dataset element
+    img = dataset_nextbatch['img']
+    msk = dataset_nextbatch['msk']
+    pot = dataset_nextbatch['pot']
+    img_width=dataset_nextbatch["img_width"]
+    img_height=dataset_nextbatch["img_height"]
+    point_num=dataset_nextbatch["point_num"]
+
+    return img, msk, pot, img_width, img_height, point_num,iterator,dataset_num
+
+
+
+def get_dataset_detection(
+                data_dir,
+                data_num_parallel,
+                data_buffer_size,
+                batch_size,
+                data_prefetch,
+                image_shape,
+                augument,
+                tfname):
+    #load tfrecord
+    dataset,dataset_num=get_database(data_dir,parse_func_detection, num_parallel=data_num_parallel, file_pattern=tfname)
+
+    #augument
+    if augument:
+        dataset = dataset.map(transform(image_shape[0],image_shape[1]).augument_detection, num_parallel_calls=data_num_parallel)
 
     #set dataset
     dataset=dataset.repeat().shuffle(buffer_size=data_buffer_size).padded_batch(batch_size,get_pad_shapes(dataset),drop_remainder=True).prefetch(data_prefetch)
@@ -378,26 +495,73 @@ def get_dataset(data_dir,data_num_parallel,data_buffer_size,batch_size,data_pref
     dataset_nextbatch=iterator.get_next()
 
     #get dataset element
-    img = dataset_nextbatch['Image']
-    img = tf.identity(tf.cast(img,tf.float32), name="input")
-    msk = dataset_nextbatch['Mask']
-    msk = tf.identity(tf.cast(msk,tf.float32), name="annotation")
-    pot = dataset_nextbatch['Point']
+    img = dataset_nextbatch['img']
+    boxes = dataset_nextbatch['boxes']
     img_width=dataset_nextbatch["img_width"]
     img_height=dataset_nextbatch["img_height"]
-    point_num=dataset_nextbatch["point_num"]
+    boxes_num=dataset_nextbatch["boxes_num"]
 
-    return img, msk, pot, img_width, img_height, point_num,iterator,dataset_num
+    return img,boxes, img_width, img_height, boxes_num,iterator,dataset_num
+    #FiXME
+
+
+
+
+
+def test_dataset_segmentation_with_point():
+    config = get_config(is_training=True)
+    img, msk, pot, img_width, img_height, point_num,iterator,dataset_num=\
+        get_dataset_segmentation_with_point(\
+            config.data_dir,
+            config.data_num_parallel,
+            config.data_buffer_size,
+            config.batch_size,
+            config.data_prefetch,
+            config.image_shape,
+            config.augument,
+            'training.tfrecords'
+        )
+    sess = tf.Session()
+    sess.run(iterator.initializer)
+    for i in range(10):
+        img_, msk_, pot_, img_width_, img_height_, point_num_ = \
+            sess.run([img, msk, pot, img_width, img_height, point_num])
+        transform.imwrite('/home/ljw/data/img' + str(i) + '.png', img_[0].astype(np.uint8))
+        transform.imwrite('/home/ljw/data/msk' + str(i) + '.png', (msk_[0]*255).astype(np.uint8))
+        pass
+
+def test_dataset_detection():
+    config = get_config(is_training=True)
+    img, boxes, img_width, img_height, boxes_num, iterator, dataset_num=\
+        get_dataset_detection(\
+            config.data_dir,
+            config.data_num_parallel,
+            config.data_buffer_size,
+            config.batch_size,
+            config.data_prefetch,
+            config.image_shape,
+            config.augument,
+            'training.tfrecords'
+        )
+    sess = tf.Session()
+    sess.run(iterator.initializer)
+    for i in range(10):
+        img_,  boxes_, img_width_, img_height_, boxes_num_ = \
+            sess.run([img,  boxes, img_width, img_height, boxes_num])
+        transform.imwrite('/home/ljw/data/img' + str(i) + '.png', img_[0].astype(np.uint8))
+        pass
+    #FIXME
+
 
 #generate tfrecords
 if __name__=='__main__':
     config = get_config(is_training=True)
-    print("start generate tfrecords")
-    generate_tfrecords(config.data_dir, 'Segmentation', 1, config.tfrecords_dir)
-    # img, msk, pot, img_width, img_height, point_num,iterator,dataset_num=get_dataset(config.data_dir,config.data_num_parallel,config.data_buffer_size,config.batch_size,config.data_prefetch,'training.tfrecords')
-    # with tf.Session() as sess:
-    #     sess.run(iterator.initializer)
-    #     for i in range(10):
-    #         img_, msk_, pot_, img_width_, img_height_, point_num_ = sess.run(
-    #             [img, msk, pot, img_width, img_height, point_num])
-    #         pass
+    # print("start generate tfrecords .......")
+    # generate_tfrecords(config.data_dir, 'Segmentation_with_Point', 1, config.tfrecords_dir)
+    # print("generate tfrecords down")
+
+    test_dataset_segmentation_with_point()
+    # test_dataset_detection()
+
+
+

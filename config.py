@@ -15,11 +15,12 @@ def get_config(is_training=True):
     config.so_path='post_process/post_process.so'
     config.num_classes=1
     # dataset
+    config.image_shape=(1024,1024)
     config.data_num_parallel = 8
     config.data_buffer_size = 16
-    config.batch_size = 1
+    config.batch_size = 4
     config.data_prefetch = config.batch_size
-
+    config.augument=True
     if is_training:
         config.is_training=True
         config.save_path=config.weight_dir
@@ -30,6 +31,7 @@ def get_config(is_training=True):
     else:
         config.testmodel="test1"     #"test1"  "test2"
         config.is_training=False
+        config.augument = False
         config.newckpt_path=config.weight_dir+'/pb/model.ckpt'
         config.pb_path = config.weight_dir + '/pb/model.pb'
     return config

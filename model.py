@@ -8,8 +8,12 @@ class Model(BaseBlock):
                  annotation = tf.placeholder(tf.float32, shape=[None, None, None,1], name="annotation")):
         self.is_training = config.is_training
         #define variable
-        self.image =image
-        self.annotation = annotation
+        if image.dtype!=tf.float32:
+            image=tf.cast(image, tf.float32)
+        if annotation.dtype != tf.float32:
+            annotation = tf.cast(annotation, tf.float32)
+        self.image =tf.identity(image, name="input")
+        self.annotation = tf.identity(annotation, name="annotation")
 
         self.num_classes=config.num_classes
         self.layers_down, self.layers_up, self.batch_norm_params = self.net_config()
