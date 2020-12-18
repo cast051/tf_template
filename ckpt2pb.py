@@ -5,7 +5,7 @@ import shutil
 import os
 from config import get_config
 
-os.environ['CUDA_VISIBLE_DEVICES']='2'
+os.environ['CUDA_VISIBLE_DEVICES']='-1'
 
 
 def ckpt2pb():
@@ -51,7 +51,7 @@ def ckpt2pb():
           saver.save(sess, config.newckpt_path)
           print("%d ops in the final graph." % len(constant_graph.node))
 
-          # """
+          """
           # caculate totle variables
           variables = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
           total_parameters = 0
@@ -66,7 +66,7 @@ def ckpt2pb():
               # print(variable_parameters)
               total_parameters += variable_parameters
           print(total_parameters)
-          # """
+          """
           writer = tf.summary.FileWriter(config.tfboard_dir, sess.graph)
 
 

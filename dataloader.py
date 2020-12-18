@@ -449,8 +449,18 @@ def get_dataset_segmentation_with_point(
 
     #augument
     if augument:
-        tran=transform(image_shape[0], image_shape[1])
-        dataset = dataset.map(tran.augument_segmentation_with_point, num_parallel_calls=data_num_parallel)
+        def augument(dataset):
+            img = dataset['img']
+            msk = dataset['msk']
+            pot = dataset['pot']
+            pot_num = dataset["point_num"]
+            tran = transform(image_shape[0], image_shape[1])
+            out_img, out_msk, out_pot = tran.augument_segmentation_with_point(img, msk, pot, pot_num)
+            dataset['img'] = out_img
+            dataset['msk'] = out_msk
+            dataset['pot'] = out_pot
+            return dataset
+        dataset = dataset.map(augument, num_parallel_calls=data_num_parallel)
 
     #set dataset
     dataset=dataset.repeat().shuffle(data_buffer_size).padded_batch(batch_size,get_pad_shapes(dataset),drop_remainder=True).prefetch(data_prefetch)
@@ -485,7 +495,17 @@ def get_dataset_detection(
 
     #augument
     if augument:
-        dataset = dataset.map(transform(image_shape[0],image_shape[1]).augument_detection, num_parallel_calls=data_num_parallel)
+        # 目标检测数据增广
+        def augument(dataset):
+            img = dataset['img']
+            boxes = dataset['boxes']
+            boxes_num = dataset["boxes_num"]
+            tran=transform(image_shape[0], image_shape[1])
+            out_img, out_boxes = tran.augument_detection(img, boxes, boxes_num)
+            dataset['img'] = out_img
+            dataset['boxes'] = out_boxes
+            return dataset
+        dataset = dataset.map(augument, num_parallel_calls=data_num_parallel)
 
     #set dataset
     dataset=dataset.repeat().shuffle(buffer_size=data_buffer_size).padded_batch(batch_size,get_pad_shapes(dataset),drop_remainder=True).prefetch(data_prefetch)
@@ -519,11 +539,12 @@ def test_dataset_segmentation_with_point():
         )
     sess = tf.Session()
     sess.run(iterator.initializer)
-    for i in range(10):
+    for i in range(50):
+        print("image :",i)
         img_, msk_, pot_, img_width_, img_height_, point_num_ = \
             sess.run([img, msk, pot, img_width, img_height, point_num])
         transform.imwrite('/home/ljw/data/img' + str(i) + '.png', img_[0].astype(np.uint8))
-        transform.imwrite('/home/ljw/data/msk' + str(i) + '.png', (msk_[0]*255).astype(np.uint8))
+        # transform.imwrite('/home/ljw/data/msk' + str(i) + '.png', (msk_[0]*255).astype(np.uint8))
         pass
 
 def test_dataset_detection():
@@ -553,10 +574,10 @@ def test_dataset_detection():
 if __name__=='__main__':
     config = get_config(is_training=True)
     print("start generate tfrecords .......")
-    generate_tfrecords(config.data_dir, 'Segmentation_with_Point', 1, config.tfrecords_dir)
+    # generate_tfrecords(config.data_dir, 'Segmentation_with_Point', 1, config.tfrecords_dir)
     print("generate tfrecords down")
 
-    # test_dataset_segmentation_with_point()
+    test_dataset_segmentation_with_point()
     # test_dataset_detection()
 
 

@@ -460,35 +460,23 @@ class augument:
         res = tf.reshape(res, (self.img_height,self.img_width,1))
         return res
 
-    #分割--点数据增广
-    def augument_segmentation_with_point(self,dataset):
-        img = dataset['img']
-        msk = dataset['msk']
-        pot = dataset['pot']
-        pot_num = dataset["point_num"]
+    # 分割--点数据增广
+    def augument_segmentation_with_point(self,img,msk,pot,pot_num):
         points_slice = self.points_slice(pot, pot_num)
         out_img, out_pot = self.random_combination(img, points=points_slice)
         out_msk = self.points2mask(out_pot, msk)
-        dataset['img']=out_img
-        dataset['msk']=out_msk
-        dataset['pot']=out_pot
-        return dataset
-    
+        return out_img,out_msk,out_pot
+
     #目标检测数据增广
-    def augument_detection(self,dataset):
-        img = dataset['img']
-        boxes = dataset['boxes']
-        boxes_num = dataset["boxes_num"]
+    def augument_detection(self,img,boxes,boxes_num):
         boxes_slice = self.boxes_slice(boxes, boxes_num)
         out_img, out_boxes = self.random_combination(img, boxes=boxes_slice)
-        dataset['img']=out_img
-        dataset['boxes']=out_boxes
-        return dataset
+        return out_img,out_boxes
 
 
 #data transform
 class transform(augument):
-    def __init__(self,img_width,img_height):
+    def __init__(self,img_width=1024,img_height=1024):
         super(transform,self).__init__(img_width,img_height)
 
     @staticmethod

@@ -1,11 +1,8 @@
-import imageio
 import numpy as np
 import math
-import time
-import cv2
 
+MinDistance_Shreshold=6
 def evaluate_model(labpoint,prepoint):
-    MinDistance_Shreshold=6
     batch_size=labpoint.shape[0]
     TP = np.zeros([batch_size], np.int32)
     FP = np.zeros([batch_size], np.int32)

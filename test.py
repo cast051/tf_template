@@ -13,9 +13,8 @@ from evalute import evaluate_model,get_PR
 os.environ['CUDA_VISIBLE_DEVICES']='3'
 
 def main():
-    is_training=False
     #get config
-    config=get_config(is_training=is_training)
+    config=get_config(is_training=False)
 
     # load post process op
     postprocess_module = tf.load_op_library(config.so_path)
@@ -74,12 +73,13 @@ def main():
                 pointy1 = output_[0][j][1].astype(np.uint)
                 cv2.circle(image_co, (pointx1, pointy1), 3, (0, 255, 0), -1)
             imageio.imwrite(config.log_test_dir + str(itr) + "_co.png", image_co)
-            imageio.imwrite(config.log_test_dir + str(itr) + '_org' + ".jpg", (img_[0]).astype(np.uint8))
+            # imageio.imwrite(config.log_test_dir + str(itr) + '_org' + ".jpg", (img_[0]).astype(np.uint8))
             imageio.imwrite(config.log_test_dir + str(itr) + '_out' + ".png", (255 * net_output_[0]).astype(np.uint8))
             imageio.imwrite(config.log_test_dir + str(itr) + '_gt'  + ".png",(255 * msk_[0]).astype(np.uint8))
         avguse_time = totle_time / dataset_num
         precious, recall, F1_Measure = get_PR(TP, FP, FN)
-        print('average use time: %.4f Precious: %.2f     Recall: %.2f    F1_Measure: %.2f' % (avguse_time,precious * 100, recall * 100, F1_Measure * 100))
+        print("TP : %d FP: %d  FN: %d ".format(TP, FP, FN))
+        print('average use time: %.3f   Precious: %.2f     Recall: %.2f    F1_Measure: %.2f' % (avguse_time,precious * 100, recall * 100, F1_Measure * 100))
         print("saving model - Step: %d," % (itr))
 
     elif config.testmodel=="test2":

@@ -27,7 +27,7 @@ def main():
 
     #instantiate train and model
     train=Base_Train(config)
-    model=Model(config,img,msk)
+    model=Model(config,tf.cast(img, tf.float32),tf.cast(msk, tf.float32))
 
     #inference
     model.inference('net')
@@ -54,7 +54,7 @@ def main():
 
         if itr % 10 == 0:
             print("Step: %d, Train_loss:%g : " % (itr, train_loss))
-        if itr % 1000==0 :
+        if itr % 200==0 :
             # save model
             train.saver.save(sess, config.weight_dir + "model.ckpt", itr)
             #debug save img

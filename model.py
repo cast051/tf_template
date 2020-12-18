@@ -5,16 +5,10 @@ from base.base_block import BaseBlock
 
 class Model(BaseBlock):
     def __init__(self,config,image = tf.placeholder(tf.float32, shape=[None, None, None, 3], name="input"),
-                 annotation = tf.placeholder(tf.float32, shape=[None, None, None,1], name="annotation")):
+                        annotation = tf.placeholder(tf.float32, shape=[None, None, None, 1], name="annotation")):
         self.is_training = config.is_training
-        #define variable
-        if image.dtype!=tf.float32:
-            image=tf.cast(image, tf.float32)
-        if annotation.dtype != tf.float32:
-            annotation = tf.cast(annotation, tf.float32)
-        self.image =tf.identity(image, name="input")
-        self.annotation = tf.identity(annotation, name="annotation")
-
+        self.image = image
+        self.annotation = annotation
         self.num_classes=config.num_classes
         self.layers_down, self.layers_up, self.batch_norm_params = self.net_config()
         self.logits=None
@@ -34,7 +28,7 @@ class Model(BaseBlock):
             [3, 16, 3],
         ]
         batch_norm_params = {
-            'decay': 0.999,
+            'decay': 0.99,
             'epsilon': 0.001,
             'updates_collections': tf.GraphKeys.UPDATE_OPS,
             'variables_collections': [tf.GraphKeys.TRAINABLE_VARIABLES],
