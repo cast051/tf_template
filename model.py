@@ -3,7 +3,7 @@ import tensorflow.contrib.slim as slim
 from base.base_block import BaseBlock
 
 
-class Model(BaseBlock):
+class Model_segmentation_with_point(BaseBlock):
     def __init__(self,config,image = tf.placeholder(tf.float32, shape=[None, None, None, 3], name="input"),
                         annotation = tf.placeholder(tf.float32, shape=[None, None, None, 1], name="annotation")):
         self.is_training = config.is_training
@@ -71,7 +71,7 @@ from config import get_config
 if __name__ == '__main__':
 
     config=get_config(is_training=True)
-    model=Model(config=config)
+    model=Model_segmentation_with_point(config=config)
     model.inference()
     print(model.y.shape)
     print(model.logits.shape)

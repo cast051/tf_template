@@ -5,10 +5,9 @@ import cv2
 import glob
 import imageio
 import time
-from dataloader import get_dataset_segmentation_with_point
-from model import Model
+from dataloader import dataloader
 from config import get_config
-from evalute import evaluate_model,get_PR
+from evalute import evaluate_segmentation_with_point_model,get_PR
 
 os.environ['CUDA_VISIBLE_DEVICES']='3'
 
@@ -36,7 +35,7 @@ def main():
     if config.testmodel=="test1":
         # get dataset tfrecords
         img, msk, pot, img_width, img_height, point_num, iterator, dataset_num = \
-            get_dataset_segmentation_with_point(
+            dataloader.get_dataset_segmentation_with_point(
                 config.data_dir,
                 config.data_num_parallel,
                 config.data_buffer_size,
@@ -57,7 +56,7 @@ def main():
             use_time = time_end - time_start
             if itr != 0:
                 totle_time += use_time
-            TP_, FP_, FN_=evaluate_model(pot_, output_)
+            TP_, FP_, FN_=evaluate_segmentation_with_point_model(pot_, output_)
             TP+=TP_ ; FP+=FP_ ; FN+=FN_
             print('TP_ %d    FP_ %d  FN_  %d' % (TP_ , FP_, FN_))
             precious, recall, F1_Measure = get_PR(TP, FP, FN)

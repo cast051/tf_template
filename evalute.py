@@ -2,7 +2,7 @@ import numpy as np
 import math
 
 MinDistance_Shreshold=6
-def evaluate_model(labpoint,prepoint):
+def evaluate_segmentation_with_point_model(labpoint,prepoint):
     batch_size=labpoint.shape[0]
     TP = np.zeros([batch_size], np.int32)
     FP = np.zeros([batch_size], np.int32)

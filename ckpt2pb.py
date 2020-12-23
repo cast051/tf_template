@@ -1,6 +1,6 @@
 import tensorflow as tf
 import numpy as np
-from model import Model
+from model import Model_segmentation_with_point
 import shutil
 import os
 from config import get_config
@@ -8,7 +8,7 @@ from config import get_config
 os.environ['CUDA_VISIBLE_DEVICES']='-1'
 
 
-def ckpt2pb():
+def ckpt2pb_segmentation_with_point():
      def get_info():
           return info
      def get_info_error():
@@ -28,7 +28,7 @@ def ckpt2pb():
           rinfo = tf.identity(ret_info, "info")
 
           # input  output
-          model = Model(config)
+          model = Model_segmentation_with_point(config)
           # inference
           model.inference('net')
 
@@ -71,7 +71,7 @@ def ckpt2pb():
 
 
 if __name__ =='__main__':
-    ckpt2pb()
+    ckpt2pb_segmentation_with_point()
 
 
 

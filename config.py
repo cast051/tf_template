@@ -4,8 +4,8 @@ from pathlib import Path
 
 def get_config(is_training=True):
     config = EasyDict()
-    config.data_dir = '/2_data/share/workspace/ljw/dataset/cell_detection/cell_dataset/data_/'
-    config.tfrecords_dir = '/2_data/share/workspace/ljw/dataset/cell_detection/cell_dataset/data_/'
+    config.data_dir = '/2_data/share/workspace/ljw/dataset/coco/data/'
+    config.tfrecords_dir = '/2_data/share/workspace/ljw/dataset/coco/data/'
     config.log_dir = 'log/'
     config.log_train_dir = config.log_dir + 'train/'
     config.log_test_dir = config.log_dir + 'test/'
@@ -16,7 +16,7 @@ def get_config(is_training=True):
     config.num_classes=1
 
     # dataset
-    config.image_shape=(1024,1024)
+    config.image_shape=(640,640)
     config.data_num_parallel = 8
     config.data_buffer_size = 16
     config.batch_size = 4

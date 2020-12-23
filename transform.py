@@ -28,7 +28,7 @@ class augument:
         self.mode=0
 
         #旋转变换是否限制直角旋转
-        self.using_rotate_90=False
+        self.using_rotate_90=True
 
     #基础变换矩阵
     def basic_matrix(self,translation):
@@ -49,30 +49,42 @@ class augument:
         return output
 
     #增广boxes
-    def apply_transform_boxes(self,boxes,transform):
+    #boxes: [xmin, ymin, xmax, ymax]
+    def apply_transform_boxes(self,boxes,labels,transform):
         out_boxes=copy.deepcopy(boxes)
+        out_labels = copy.deepcopy(labels)
         del_idx = []
         for i in range(boxes.shape[0]):
-            xmin1 = boxes[i][0]
-            xmax1 = boxes[i][1]
-            ymin1 = boxes[i][2]
-            ymax1 = boxes[i][3]
+            xmin1 = boxes[i][0]*self.img_width
+            ymin1 = boxes[i][1]*self.img_height
+            xmax1 = boxes[i][2]*self.img_width
+            ymax1 = boxes[i][3]*self.img_height
             x1=transform[0][0]*xmin1+transform[0][1]*ymin1+transform[0][2]
             y1=transform[1][0]*xmin1+transform[1][1]*ymin1+transform[1][2]
             x2=transform[0][0]*xmax1+transform[0][1]*ymax1+transform[0][2]
             y2=transform[1][0]*xmax1+transform[1][1]*ymax1+transform[1][2]
-            if x1>0 and y1>0 and x2>0 and y2>0 and \
-                    x1<(self.img_height-1) and y1 <(self.img_width-1) and \
-                    x2<(self.img_height-1) and y2 <(self.img_width-1):
-                xmin2 = min(x1, x2)
-                xmax2 = max(x1, x2)
-                ymin2 = min(y1, y2)
-                ymax2 = max(y1, y2)
-                out_boxes[i] = [xmin2,xmax2,ymin2,ymax2]
+            # 只要transform溢出任意一边就去除此boxes
+            # if x1>=0 and y1>=0 and x2>=0 and y2>=0 and \
+            #         x1=<(self.img_width-1) and y1 <=(self.img_height-1) and \
+            #         x2=<(self.img_width-1) and y2 <=(self.img_height-1):
+            #     xmin2 = min(x1, x2)/self.img_width
+            #     xmax2 = max(x1, x2)/self.img_width
+            #     ymin2 = min(y1, y2)/self.img_height
+            #     ymax2 = max(y1, y2)/self.img_height
+            #     out_boxes[i] = [xmin2,ymin2,xmax2,ymax2]
+            # 只要有一条边还存在就不去除boxes
+            if (x1>=0 and y1>=0 and x1<=(self.img_width-1) and y1 <=(self.img_height-1)) or \
+               (x2>=0 and y2>=0 and x2<=(self.img_width-1) and y2 <=(self.img_height-1)):
+                xmin2 = min(x1, x2,self.img_width)/self.img_width
+                xmax2 = max(x1, x2,0)/self.img_width
+                ymin2 = min(y1, y2,self.img_height)/self.img_height
+                ymax2 = max(y1, y2,0)/self.img_height
+                out_boxes[i] = [xmin2,ymin2,xmax2,ymax2]
             else:
                 del_idx.append(i)
-        out_points=np.delete(out_boxes,del_idx,0)
-        return out_points
+        out_boxes=np.delete(out_boxes,del_idx,0)
+        out_labels = np.delete(out_labels, del_idx, 0)
+        return out_boxes,out_labels
         #FIXME
 
     #增广points
@@ -308,7 +320,7 @@ class augument:
         return (factor_translation,factor_flip,factor_rotate,factor_scale)
 
     #随机组合变换
-    def random_combination_affine(self,img,boxes=None,points=None):
+    def random_combination_affine(self,img,boxes=None,labels=None,points=None):
         factor = self.get_random_combination()
         if self.mode == 0:
             org_shape = tf.shape(img)
@@ -317,9 +329,11 @@ class augument:
             img_t = tf.reshape(img_t, org_shape)
             out=[img_t]
             if boxes is not None:
-                boxes_t = tf.py_func(self.apply_transform_boxes, [boxes, matrix], Tout=[boxes.dtype])[0]
-                boxes_t = tf.reshape(boxes_t, [-1, 4])
-                out.append(boxes_t)
+                out_boxes,out_labels = tf.py_func(self.apply_transform_boxes, [boxes, labels,matrix], Tout=[boxes.dtype,labels.dtype])
+                out_boxes = tf.reshape(out_boxes, [-1, 4])
+                out_labels = tf.reshape(out_labels, [-1, 1])
+                out.append(out_boxes)
+                out.append(out_labels)
             if points is not None:
                 points_t = tf.py_func(self.apply_transform_points, [points, matrix], Tout=[points.dtype])[0]
                 points_t=tf.reshape(points_t,[-1,2])
@@ -329,8 +343,9 @@ class augument:
             out_img = self.apply_transform_img(img, matrix)
             out = [out_img]
             if boxes is not None:
-                out_boxes = self.apply_transform_boxes(boxes, matrix)
+                out_boxes ,out_labels= self.apply_transform_boxes(boxes,labels, matrix)
                 out.append[out_boxes]
+                out.append(out_labels)
             if points is not None:
                 out_points = self.apply_transform_points(points, matrix)
                 out.append[out_points]
@@ -425,12 +440,12 @@ class augument:
         return out_img
 
     #随机组合色彩调整
-    def random_combination(self,img,boxes=None,points=None,using_affine=True,using_color=True):
+    def random_combination(self,img,boxes=None,labels=None,points=None,using_affine=True,using_color=True):
         out_img=copy.copy(img)
         if using_color:
             out_img = self.random_combination_color(out_img)
         if using_affine:
-            out=self.random_combination_affine(out_img,boxes=boxes,points=points)
+            out=self.random_combination_affine(out_img,boxes=boxes,labels=labels,points=points)
         else:
             out=out_img
         return out
@@ -468,10 +483,9 @@ class augument:
         return out_img,out_msk,out_pot
 
     #目标检测数据增广
-    def augument_detection(self,img,boxes,boxes_num):
-        boxes_slice = self.boxes_slice(boxes, boxes_num)
-        out_img, out_boxes = self.random_combination(img, boxes=boxes_slice)
-        return out_img,out_boxes
+    def augument_detection(self,img,boxes,labels):
+        out_img, out_boxes ,labels= self.random_combination(img, boxes=boxes,labels=labels)
+        return out_img,out_boxes ,labels
 
 
 #data transform
