@@ -17,10 +17,6 @@ class BaseBlock:
         out = slim.conv2d_transpose(x,out_size,kernel_size,scope='transpose')
         out = tf.image.resize_images(x,[300,300],method=0)
 
-
-
-    # activation function
-    # support 'relu','relu6','hard_swish','hard_sigmoid','sigmoid','tanh','softmax'
     def hard_swish(self,x,scope='hard_swish'):
         with tf.variable_scope(scope):
             out = x * tf.nn.relu6(x + 3) / 6
@@ -41,6 +37,86 @@ class BaseBlock:
             out = tf.reshape(out, [-1, 1, 1, out_size])
             out = x * out
             return out
+
+    # get shape width and height
+    # transport tensor to tensor type int32
+    def get_shape_width_height(self,x):
+        if len(x.get_shape()) == 4:
+            H = tf.to_int32(tf.shape(x)[1])
+            W = tf.to_int32(tf.shape(x)[2])
+        elif len(x.get_shape()) == 3:
+            H = tf.to_int32(tf.shape(x)[0])
+            W = tf.to_int32(tf.shape(x)[1])
+        else:
+            raise NotImplementedError("Error")
+        return H,W
+
+    # up sampling : difference resize mode
+    def up_resize(self,x, scale_factor=2, mode=tf.image.ResizeMethod.NEAREST_NEIGHBOR,scope='up_resize'):
+        with tf.name_scope(scope):
+            H,W=self.get_shape_width_height(x)
+            out=tf.image.resize_images(x,[H * scale_factor, W * scale_factor],method=mode)
+        return out
+
+    # up sampling : un max pool
+    def unpool(self, x, scope='unpool'):
+        with tf.name_scope(scope) :
+            out_size = x.get_shape().dims[-1]
+            out = slim.conv2d_transpose(x, out_size, 3, stride=2, scope='upsample_transpose')
+            return out
+        #FIXME
+
+    def upsample(self,x,scale_factor=2,mode='up_resize',scope='upsample'):
+        with tf.variable_scope(scope):
+            if mode=='up_resize':
+                out = self.up_resize(x,scale_factor=scale_factor)
+            elif mode=='transpose':
+                out_size = x.get_shape().dims[-1]
+                out = slim.conv2d_transpose(x, out_size, 3, stride=2, scope='upsample_transpose')
+            elif mode=='unpool':
+                out = self.unpool(x)
+            else:
+                raise NotImplementedError("Error")
+            return out
+
+    # fpn block
+    # x sequence from up to down
+    # out sequence from up to down
+    # type concat
+    def fpn_concat_block(self,x,upmode='resize',scope='fpn'):
+        with tf.variable_scope(scope):
+            fpn_number=len(x)
+            fpn=[]
+            x.reverse()
+            for i , up_node in enumerate(x):
+                out=slim.conv2d(up_node, up_node.get_shape().dims[-1], [1, 1], scope="conv_{}".format(i))
+                if len(fpn) > 0:
+                    uped_node = self.upsample(fpn[i-1], mode=upmode, scope='upsample_{}'.format(i-1))
+                    out_size=out.get_shape().dims[-1]
+                    out = tf.concat([out,uped_node],-1)
+                    out = slim.conv2d(out,out_size , [1, 1], scope="merge_conv_{}".format(i-1))
+                fpn.append(out)
+            fpn.reverse()
+            return fpn
+
+    # fpn block
+    # x sequence from up to down
+    # out sequence from up to down
+    # type add
+    def fpn_add_block(self,x,out_size,upmode='resize',scope='fpn'):
+        with tf.variable_scope(scope):
+            fpn_number=len(x)
+            fpn=[]
+            x.reverse()
+            for i , up_node in enumerate(x):
+                out=slim.conv2d(up_node, out_size, [1, 1], scope="conv_{}".format(i))
+                if len(fpn) > 0:
+                    uped_node = self.upsample(fpn[i-1], mode=upmode, scope='upsample_{}'.format(i-1))
+                    out = tf.add(out,uped_node)
+                    out = slim.conv2d(out,out_size , [1, 1], scope="merge_conv_{}".format(i-1))
+                fpn.append(out)
+            fpn.reverse()
+            return fpn
 
     # mobilenet v3 block
     def mobilenet_v3_block(self,x, in_size, expand_size, out_size, kernel_size , batch_norm_params, activation_fn=hard_swish , stride=1, ratio=4, se=True,scope="mobilenet_v3_block"):

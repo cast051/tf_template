@@ -7,7 +7,7 @@ class BaseNet(BaseBlock):
     def __init__(self):
         pass
 
-    def mobilenet_v3_small(self,x, classes_num, is_training=False):
+    def mobilenet_v3_small(self,x, classes_num=2, is_training=False):
         architecture = {}
         layers = [
             [16, 16, 3, 2, tf.nn.relu6    , True , 16],
@@ -33,9 +33,6 @@ class BaseNet(BaseBlock):
             with slim.arg_scope([slim.conv2d, slim.separable_conv2d],
                                 normalizer_fn=slim.batch_norm,
                                 normalizer_params=batch_norm_params,):
-                input_size = x.get_shape().as_list()[1:-1]
-                assert ((input_size[0] % 32 == 0) and (input_size[1] % 32 == 0))
-
                 out=slim.conv2d(x,16,[3,3],activation_fn=self.hard_swish,stride=2,scope="conv1")
                 architecture["conv1"] = out
 
@@ -60,7 +57,7 @@ class BaseNet(BaseBlock):
                 architecture["Logits"] = logits
                 return logits,architecture
 
-    def mobilenet_v3_large(self,x, classes_num, is_training=False):
+    def mobilenet_v3_large(self,x, classes_num=2, is_training=False):
         architecture = {}
         layers = [
             [16 , 16 , 3, 1, tf.nn.relu6    , False, 16],
@@ -90,9 +87,6 @@ class BaseNet(BaseBlock):
             with slim.arg_scope([slim.conv2d, slim.separable_conv2d],
                                 normalizer_fn=slim.batch_norm,
                                 normalizer_params=batch_norm_params, ):
-                input_size = x.get_shape().as_list()[1:-1]
-                assert ((input_size[0] % 32 == 0) and (input_size[1] % 32 == 0))
-
                 out = slim.conv2d(x, 16, [3, 3], activation_fn=self.hard_swish, stride=2, scope="conv1")
                 architecture["conv1"] = out
 
@@ -120,7 +114,7 @@ class BaseNet(BaseBlock):
                 return logits, architecture
 
 
-    def resnet(self,x, classes_num, net_type=50,is_training=False):
+    def resnet(self,x, classes_num=2, net_type=50,is_training=False):
         architecture = {}
         if net_type==18:
             block_num=[2,2,2,2]
@@ -158,9 +152,6 @@ class BaseNet(BaseBlock):
             with slim.arg_scope([slim.conv2d],
                                 normalizer_fn=slim.batch_norm,
                                 normalizer_params=batch_norm_params, ):
-                input_size = x.get_shape().as_list()[1:-1]
-                assert ((input_size[0] % 32 == 0) and (input_size[1] % 32 == 0))
-
                 out = slim.conv2d(x, 64, [7, 7], activation_fn=tf.nn.relu, stride=2, scope="conv1")
                 architecture["conv1"] = out
 
