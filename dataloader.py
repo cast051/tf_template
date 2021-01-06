@@ -110,7 +110,8 @@ MODE=2
 
 
 class dataloader:
-    def generate_tfrecords(self,dataset_dir, task, mode, tfrecords_dir):
+    @classmethod
+    def generate_tfrecords(cls,dataset_dir, task, mode, tfrecords_dir):
         assert os.path.isdir(dataset_dir)
         assert task in ['Classification', 'Segmentation', 'Segmentation_with_Point', 'Detection']
         assert mode in [1, 2]
@@ -156,7 +157,7 @@ class dataloader:
                             with tf.gfile.GFile(msk_abs_path, 'rb') as fid:
                                 msk = fid.read()
 
-                            pot = self.read_json2point(pot_abs_path)
+                            pot = cls().read_json2point(pot_abs_path)
                             pot_raw = pot.tobytes()
                             temp=cv2.imread(img_abs_path)
                             img_width = temp.shape[0]
@@ -343,7 +344,6 @@ class dataloader:
             res[k] = shape
         return res
 
-
     def get_dataset_segmentation_with_point(self,
                     data_dir,
                     data_num_parallel,
@@ -387,8 +387,6 @@ class dataloader:
         point_num=dataset_nextbatch["point_num"]
 
         return img, msk, pot, img_width, img_height, point_num,iterator,dataset_num
-
-
 
     def get_dataset_detection(self,
                     data_dir,
@@ -435,7 +433,7 @@ class dataloader:
 
 def test_dataset_segmentation_with_point():
     config = get_config(is_training=True)
-    data = dataloader()
+    data=dataloader()
     img, msk, pot, img_width, img_height, point_num,iterator,dataset_num=\
         data.get_dataset_segmentation_with_point(\
             config.tfrecords_dir,
@@ -459,7 +457,7 @@ def test_dataset_segmentation_with_point():
 
 def test_dataset_detection():
     config = get_config(is_training=True)
-    data = dataloader()
+    data=dataloader()
     img, boxes, img_width, img_height, boxes_num, iterator, dataset_num=\
         data.get_dataset_detection(\
             config.data_dir,
@@ -485,8 +483,7 @@ def test_dataset_detection():
 if __name__=='__main__':
     config = get_config(is_training=True)
     print("start generate tfrecords .......")
-    data=dataloader()
-    # data.generate_tfrecords(config.data_dir, 'Segmentation_with_Point', 1, config.tfrecords_dir)
+    # dataloader.generate_tfrecords(config.data_dir, 'Segmentation_with_Point', 1, config.tfrecords_dir)
     print("generate tfrecords down")
 
     test_dataset_segmentation_with_point()

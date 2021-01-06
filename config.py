@@ -1,6 +1,6 @@
 from easydict import EasyDict
 from pathlib import Path
-
+import tensorflow as tf
 
 def get_config(is_training=True):
     config = EasyDict()
@@ -13,7 +13,7 @@ def get_config(is_training=True):
     config.tfboard_dir = config.log_dir + 'tfboard/'
     config.weight_dir = 'weight/'
     config.so_path='post_process/post_process.so'
-    config.num_classes=1
+    config.num_classes=80
 
     # dataset
     config.image_shape=(640,640)
@@ -34,6 +34,11 @@ def get_config(is_training=True):
     config.testmodel = "test1"  # "test1"  "test2"
     config.newckpt_path = config.weight_dir + '/pb/model.ckpt'
     config.pb_path = config.weight_dir + '/pb/model.pb'
+
+    #gpu
+    gpu_config = tf.ConfigProto()
+    # gpu_config.gpu_options.per_process_gpu_memory_fraction = 0.4 
+    gpu_config.gpu_options.allow_growth = True 
 
     if is_training:
         config.is_training=True

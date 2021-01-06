@@ -1,6 +1,6 @@
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
-
+from loss import MultiBoxLoss
 
 class Base_Train:
     def __init__(self,config):

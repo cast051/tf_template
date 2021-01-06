@@ -1,11 +1,12 @@
 import tensorflow as tf
 from config import get_config
-from model import Model_segmentation_with_point
+from model import Model_detection
 from base.base_train import Base_Train
 import os
 import imageio
 import numpy as np
-from dataloader import dataloader
+from dataloader_coco import dataloader_coco
+from anchor import Generate_Anchor
 os.environ['CUDA_VISIBLE_DEVICES']='4'
 
 def main():
@@ -13,24 +14,39 @@ def main():
     config=get_config(is_training=True)
 
     #get dataset tfrecords
-    img, msk, pot, img_width, img_height, point_num,iterator,dataset_num=\
-        dataloader.get_dataset_segmentation_with_point(
-            config.data_dir,
-            config.data_num_parallel,
-            config.data_buffer_size,
-            config.batch_size,
-            config.data_prefetch,
-            config.image_shape,
-            config.augument,
-            'training.tfrecords'
-        )
+    data=dataloader_coco(640,640)
+    img, boxes, masks, slice, img_width, img_height, labels, iterator = data.get_dataset_coco(
+        config.data_dir,
+        config.data_num_parallel,
+        config.data_buffer_size,
+        config.batch_size,
+        config.data_prefetch,
+        config.image_shape,
+        config.augument,
+        'coco_train*.tfrecords'
+    )
+
+    #depad
+    boxes = tf.map_fn(lambda x:tf.slice(x[0],[0,0],x[1]),elems=[boxes,slice],dtype=tf.float32)
+    labels = tf.map_fn(lambda x: tf.slice(x[0], [0, 0], x[1]), elems=[labels, slice], dtype=tf.int64)
 
     #instantiate train and model
     train=Base_Train(config)
-    model=Model_segmentation_with_point(config,tf.cast(img, tf.float32),tf.cast(msk, tf.float32))
-
+    model = Model_detection(config=config,
+                            anchor_num=5*2,
+                            image=tf.cast(img, tf.float32),
+                            boxes_gt=boxes,
+                            classes_gt=labels)
     #inference
-    model.inference('net')
+    model(scope='net')
+
+    #anchor
+    gen_anchor = Generate_Anchor(
+                        [[4,8],[16, 32], [64, 128], [256, 512]],
+                        [4,8, 16, 32],
+                        [1/2,2,1/3,3],
+                        (640, 640))
+    anchors = gen_anchor()
 
     #loss and optimizer
     loss=Base_Train.loss(tf.squeeze(model.logits, 3),tf.squeeze(model.annotation, 3))

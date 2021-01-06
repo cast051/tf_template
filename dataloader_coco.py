@@ -17,6 +17,9 @@ os.environ['CUDA_VISIBLE_DEVICES'] = '4'
 IMAGE_PER_RECORD = 10000
 
 class dataloader_coco(dataloader):
+    def __init__(self,alignmen_image_height,alignmen_image_width):
+        self.alignmen_image_height=alignmen_image_height
+        self.alignmen_image_width=alignmen_image_width
     def create_coco_tf_example(self,image_info, annotations_list, image_dir, categories, include_masks):
         category_index = {}
         for category in categories:
@@ -101,8 +104,8 @@ class dataloader_coco(dataloader):
             return None, None
         return example, num_annotations_skipped
 
-
-    def generate_coco_tfrecords(self,annotations_instances_path, image_dir, tfrecords_dir, name='coco_train',
+    @classmethod
+    def generate_coco_tfrecords(cls,annotations_instances_path, image_dir, tfrecords_dir, name='coco_train',
                                 include_masks=True):
         with tf.gfile.GFile(annotations_instances_path, 'r') as fid:
             groundtruth_data = json.load(fid)
@@ -132,7 +135,7 @@ class dataloader_coco(dataloader):
                         print('process: ', idx)
                         image_info = images_info[idx]
                         annotations_list = annotations_index[image_info['id']]
-                        tf_example, num_annotations_skipped = self.create_coco_tf_example(
+                        tf_example, num_annotations_skipped = cls().create_coco_tf_example(
                             image_info, annotations_list, image_dir, categories, include_masks)
                         if tf_example is not None:
                             writer.write(tf_example.SerializeToString())
@@ -234,8 +237,8 @@ class dataloader_coco(dataloader):
 
 
     def parse_func_coco_alignment(self,dataset):
-        alig_image_width = tf.constant(640, dtype=tf.int64)
-        alig_image_height = tf.constant(640, dtype=tf.int64)
+        alig_image_width = tf.constant(self.alignmen_image_width, dtype=tf.int64)
+        alig_image_height = tf.constant(self.alignmen_image_height, dtype=tf.int64)
         img = dataset['img']
         boxes = dataset['boxes']
         masks = dataset['masks']
@@ -307,7 +310,7 @@ class dataloader_coco(dataloader):
 def test_load_coco_tfrecord():
     # decode tfrecord
     config = get_config(is_training=True)
-    data=dataloader_coco()
+    data=dataloader_coco(640,640)
     img, boxes, masks, slice, img_width, img_height, labels, iterator = data.get_dataset_coco(
         config.data_dir,
         config.data_num_parallel,
@@ -328,9 +331,10 @@ def test_load_coco_tfrecord():
         categories = groundtruth_data['categories']
         for category in categories:
             category_index[category['id']] = category
+
     for i in range(5):
         print("batch :", i)
-        img_, boxes_, masks_, img_width_, img_height_, labels_, = \
+        img_, boxes_, masks_, img_width_, img_height_, labels_ = \
             sess.run([img, boxes, masks, img_width, img_height, labels])
         for m, _ in enumerate(boxes_):
             for n, box in enumerate(boxes_[m]):
@@ -353,12 +357,12 @@ if __name__ == "__main__":
     annotations_instances_validation_path = config.data_dir + 'annotations/instances_val2017.json'
     train_dir = config.data_dir + 'train2017/'
     validation_dir = config.data_dir + 'val2017/'
-    data=dataloader_coco()
+
     # generate tfrecord
     # print("generate validation tfrecord")
-    # data.generate_coco_tfrecords(annotations_instances_validation_path,validation_dir, tfrecords_dir,name='coco_validation')
+    # dataloader_coco.generate_coco_tfrecords(annotations_instances_validation_path,validation_dir, tfrecords_dir,name='coco_validation')
     # print("generate train tfrecord")
-    # data.generate_coco_tfrecords(annotations_instances_train_path, train_dir, tfrecords_dir, name='coco_train')
+    # dataloader_coco.generate_coco_tfrecords(annotations_instances_train_path, train_dir, tfrecords_dir, name='coco_train')
 
     test_load_coco_tfrecord()
 

@@ -61,17 +61,20 @@ class BaseBlock:
     # up sampling : un max pool
     def unpool(self, x, scope='unpool'):
         with tf.name_scope(scope) :
-            out_size = x.get_shape().dims[-1]
+            out_size = x.shape[-1]
             out = slim.conv2d_transpose(x, out_size, 3, stride=2, scope='upsample_transpose')
             return out
-        #FIXME
+        #TODO
 
+    # upsample : 1.up_resize
+    #            2.transpose
+    #            3.unpool (TODO)
     def upsample(self,x,scale_factor=2,mode='up_resize',scope='upsample'):
         with tf.variable_scope(scope):
             if mode=='up_resize':
                 out = self.up_resize(x,scale_factor=scale_factor)
             elif mode=='transpose':
-                out_size = x.get_shape().dims[-1]
+                out_size = x.shape[-1]
                 out = slim.conv2d_transpose(x, out_size, 3, stride=2, scope='upsample_transpose')
             elif mode=='unpool':
                 out = self.unpool(x)
@@ -117,6 +120,34 @@ class BaseBlock:
                 fpn.append(out)
             fpn.reverse()
             return fpn
+
+    def ssh_context(self,x,scope='ssh_context'):
+        with tf.variable_scope(scope):
+            out_size = x.shape[-1]//4
+            out = slim.conv2d(x, out_size , [3, 3], scope='conv_1')
+            out1 = slim.conv2d(out,out_size ,[3,3],scope='conv_2_1')
+            out2 = slim.conv2d(out, out_size , [3, 3], scope='conv_2_2_1')
+            out2 = slim.conv2d(out2, out_size , [3, 3], scope='conv_2_2_2')
+            out=tf.concat([out1,out2],-1)
+            return out
+
+
+    def ssh_detection_block(self,x,scope='ssh_detection'):
+        with tf.variable_scope(scope):
+            out_size=x.shape[-1]//2
+            out1=slim.conv2d(x,out_size,[3,3],scope='conv')
+            out2=self.ssh_context(x)
+            out=tf.concat([out1,out2],-1)
+            return out
+
+    def detection_head_block(self,x,out_size,anchor_num,scope='detection_head'):
+        with tf.variable_scope(scope):
+            out=slim.conv2d(x,out_size*anchor_num,[1,1],scope='conv1x1')
+            out=tf.reshape(out,[tf.shape(x)[0],-1,out_size])
+            return out
+
+
+
 
     # mobilenet v3 block
     def mobilenet_v3_block(self,x, in_size, expand_size, out_size, kernel_size , batch_norm_params, activation_fn=hard_swish , stride=1, ratio=4, se=True,scope="mobilenet_v3_block"):

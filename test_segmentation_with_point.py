@@ -19,7 +19,7 @@ def main():
     postprocess_module = tf.load_op_library(config.so_path)
 
     # create session and load model
-    sess = tf.Session()
+    sess = tf.Session(config=config.gpu_config)
     sess.run(tf.global_variables_initializer())
 
     #load model
